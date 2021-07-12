@@ -1,14 +1,22 @@
 //Yamaha YM7101
-#if defined(PROFILE_PERFORMANCE)
-#include "../vdp-performance/vdp.hpp"
-#else
 struct VDP : Thread {
   Node::Component node;
   Node::Screen screen;
-  Node::String region;
+  Node::Boolean overscan;
+
+  struct Debugger {
+    //debugger.cpp
+    auto load(Node::Object) -> void;
+
+    struct Memory {
+      Node::Memory vram;
+      Node::Memory vsram;
+      Node::Memory cram;
+    } memory;
+  } debugger;
 
   //vdp.cpp
-  auto load(Node::Object, Node::Object) -> void;
+  auto load(Node::Object) -> void;
   auto unload() -> void;
 
   auto main() -> void;
@@ -116,8 +124,8 @@ struct VDP : Thread {
 
   struct Object {
     //sprite.cpp
-    inline auto width() const -> uint;
-    inline auto height() const -> uint;
+    auto width() const -> uint;
+    auto height() const -> uint;
 
     //serialization.cpp
     auto serialize(serializer&) -> void;
@@ -278,4 +286,3 @@ private:
 };
 
 extern VDP vdp;
-#endif

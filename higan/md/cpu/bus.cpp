@@ -26,7 +26,7 @@ auto CPU::read(uint1 upper, uint1 lower, uint24 address, uint16 data) -> uint16 
   }
 
   if(address >= 0xa00000 && address <= 0xa0ffff) {
-    if(!apu.granted()) return data;
+    if(apu.busStatus()) return data;
     address.bit(15) = 0;  //a080000-a0ffff mirrors a00000-a07fff
     //word reads load the even input byte into both output bytes
     auto byte = apu.read(address | !upper);  //upper==0 only on odd byte reads
@@ -34,8 +34,8 @@ auto CPU::read(uint1 upper, uint1 lower, uint24 address, uint16 data) -> uint16 
   }
 
   if(address >= 0xa10000 && address <= 0xbfffff) {
-    data = cartridge.readIO(upper, lower, address, data);
-    data = expansion.readIO(upper, lower, address, data);
+    if(cartridge.node) data = cartridge.readIO(upper, lower, address, data);
+    if(expansion.node) data = expansion.readIO(upper, lower, address, data);
     data = readIO(upper, lower, address, data);
     return data;
   }
@@ -79,15 +79,15 @@ auto CPU::write(uint1 upper, uint1 lower, uint24 address, uint16 data) -> void {
   }
 
   if(address >= 0xa00000 && address <= 0xa0ffff) {
-    if(!apu.granted()) return;
+    if(apu.busStatus()) return;
     address.bit(15) = 0;  //a08000-a0ffff mirrors a00000-a07fff
     //word writes store the upper input byte into the lower output byte
     return apu.write(address | !upper, data.byte(upper));  //upper==0 only on odd byte reads
   }
 
   if(address >= 0xa10000 && address <= 0xbfffff) {
-    cartridge.writeIO(upper, lower, address, data);
-    expansion.writeIO(upper, lower, address, data);
+    if(cartridge.node) cartridge.writeIO(upper, lower, address, data);
+    if(expansion.node) expansion.writeIO(upper, lower, address, data);
     writeIO(upper, lower, address, data);
     return;
   }

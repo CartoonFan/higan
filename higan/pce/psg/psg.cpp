@@ -7,18 +7,12 @@ PSG psg;
 #include "channel.cpp"
 #include "serialization.cpp"
 
-auto PSG::load(Node::Object parent, Node::Object from) -> void {
-  node = Node::append<Node::Component>(parent, from, "PSG");
-  from = Node::scan(parent = node, from);
+auto PSG::load(Node::Object parent) -> void {
+  node = parent->append<Node::Component>("PSG");
 
-  stream = Node::append<Node::Stream>(parent, from, "Stream");
+  stream = parent->append<Node::Stream>("PSG");
   stream->setChannels(2);
-  #if defined(PROFILE_ACCURACY)
   stream->setFrequency(system.colorburst());
-  #endif
-  #if defined(PROFILE_PERFORMANCE)
-  stream->setFrequency(system.colorburst() / 64.0);
-  #endif
   stream->addHighPassFilter(20.0, 1);
 }
 
@@ -31,19 +25,9 @@ auto PSG::main() -> void {
   int16 outputLeft;
   int16 outputRight;
 
-  #if defined(PROFILE_ACCURACY)
   frame(outputLeft, outputRight);
   stream->sample(sclamp<16>(outputLeft) / 32768.0, sclamp<16>(outputRight) / 32768.0);
   step(1);
-  #endif
-
-  #if defined(PROFILE_PERFORMANCE)
-  //3.57MHz stereo audio through a 6th-order biquad IIR filter is very demanding.
-  //decimate the audio to ~56KHz, which is still well above the range of human hearing.
-  for(uint n : range(64)) frame(outputLeft, outputRight);
-  stream->sample(sclamp<16>(outputLeft) / 32768.0, sclamp<16>(outputRight) / 32768.0);
-  step(64);
-  #endif
 }
 
 auto PSG::frame(int16& outputLeft, int16& outputRight) -> void {

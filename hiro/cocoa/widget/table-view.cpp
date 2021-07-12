@@ -151,6 +151,23 @@
   [super keyDown:event];
 }
 
+-(void) reloadData {
+  // Acquire lock to prevent tableViewSelectionDidChange from invoking the onChange callback
+  auto lock = tableView->self()->acquire();
+  [super reloadData];
+}
+
+-(NSMenu*) menuForEvent:(NSEvent*)event {
+  // Right-clicks don't change the selected item by default on macOS, so do it manually
+  NSInteger row = [self rowAtPoint:[self convertPoint:event.locationInWindow fromView:nil]];
+  if (row >= 0 && ![self isRowSelected:row]) {
+    [self selectRowIndexes:[NSIndexSet indexSetWithIndex:row] byExtendingSelection:NO];
+  }
+
+  tableView->doContext();
+  return nil;
+}
+
 @end
 
 @implementation CocoaTableViewCell : NSCell

@@ -1,6 +1,3 @@
-#if defined(PROFILE_PERFORMANCE)
-#include "../vdp-performance/vdp.cpp"
-#else
 #include <md/md.hpp>
 
 namespace higan::MegaDrive {
@@ -13,52 +10,43 @@ VDP vdp;
 #include "background.cpp"
 #include "sprite.cpp"
 #include "color.cpp"
+#include "debugger.cpp"
 #include "serialization.cpp"
 
-auto VDP::load(Node::Object parent, Node::Object from) -> void {
-  node = Node::append<Node::Component>(parent, from, "VDP");
-  from = Node::scan(parent = node, from);
+auto VDP::load(Node::Object parent) -> void {
+  node = parent->append<Node::Component>("VDP");
 
-  screen = Node::append<Node::Screen>(parent, from, "Screen");
+  screen = node->append<Node::Screen>("Screen");
   screen->colors(3 * (1 << 9), {&VDP::color, this});
   screen->setSize(1280, 480);
   screen->setScale(0.25, 0.50);
   screen->setAspect(1.0, 1.0);
-  from = Node::scan(parent = screen, from);
 
-  region = Node::append<Node::String>(parent, from, "Region", "PAL", [&](auto region) {
-    if(region == "NTSC") screen->setSize(1280, 448);
-    if(region == "PAL" ) screen->setSize(1280, 480);
+  overscan = screen->append<Node::Boolean>("Overscan", true, [&](auto value) {
+    if(value == 0) screen->setSize(1280, 448);
+    if(value == 1) screen->setSize(1280, 480);
   });
-  region->setDynamic(true);
-  region->setAllowedValues({"NTSC", "PAL"});
+  overscan->setDynamic(true);
+
+  debugger.load(node);
 }
 
 auto VDP::unload() -> void {
   node = {};
   screen = {};
-  region = {};
+  overscan = {};
+  debugger = {};
 }
 
 auto VDP::main() -> void {
   scanline();
 
   cpu.lower(CPU::Interrupt::HorizontalBlank);
-  apu.setINT(false);
 
   if(state.vcounter == 0) {
     latch.horizontalInterruptCounter = io.horizontalInterruptCounter;
     io.vblankIRQ = false;
     cpu.lower(CPU::Interrupt::VerticalBlank);
-  }
-
-  if(state.vcounter == screenHeight()) {
-    if(io.verticalBlankInterruptEnable) {
-      io.vblankIRQ = true;
-      cpu.raise(CPU::Interrupt::VerticalBlank);
-    }
-    //todo: should only stay high for ~2573/2 clocks
-    apu.setINT(true);
   }
 
   if(state.vcounter < screenHeight()) {
@@ -76,6 +64,19 @@ auto VDP::main() -> void {
     }
 
     step(430);
+
+  } else if(state.vcounter == screenHeight()) {
+    if(io.verticalBlankInterruptEnable) {
+      io.vblankIRQ = true;
+      cpu.raise(CPU::Interrupt::VerticalBlank);
+    }
+
+    // only stay high for ~2573/2 clocks
+    apu.setINT(true);
+    step(2573/2);
+    apu.setINT(false);
+    step(1710-(2573/2));
+
   } else {
     step(1710);
   }
@@ -102,12 +103,12 @@ auto VDP::step(uint clocks) -> void {
 auto VDP::refresh() -> void {
   auto data = output;
 
-  if(region->value() == "NTSC") {
+  if(overscan->value() == 0) {
     if(latch.overscan) data += 16 * 1280;
     screen->refresh(data, 1280 * sizeof(uint32), 1280, 448);
   }
 
-  if(region->value() == "PAL") {
+  if(overscan->value() == 1) {
     if(!latch.overscan) data -= 16 * 1280;
     screen->refresh(data, 1280 * sizeof(uint32), 1280, 480);
   }
@@ -134,7 +135,8 @@ auto VDP::power(bool reset) -> void {
   planeB.power();
   sprite.power();
   dma.power();
+
+  psg.power(reset);
 }
 
 }
-#endif

@@ -51,8 +51,8 @@ struct Z80 {
   auto displace(uint16&) -> uint16;
   auto read(uint16 addr) -> uint8;
   auto write(uint16 addr, uint8 data) -> void;
-  auto in(uint8 addr) -> uint8;
-  auto out(uint8 addr, uint8 data) -> void;
+  auto in(uint16 addr) -> uint8;
+  auto out(uint16 addr, uint8 data) -> void;
 
   //instruction.cpp
   auto instruction() -> void;
@@ -224,8 +224,8 @@ struct Z80 {
   auto serialize(serializer&) -> void;
 
   //disassembler.cpp
-  auto disassembleInstruction(maybe<uint16> pc = {}) -> string;
-  auto disassembleContext() -> string;
+  noinline auto disassembleInstruction(maybe<uint16> pc = {}) -> string;
+  noinline auto disassembleContext() -> string;
 
   auto disassemble(uint16 pc, uint8 prefix, uint8 code) -> string;
   auto disassembleCB(uint16 pc, uint8 prefix, uint8 code) -> string;

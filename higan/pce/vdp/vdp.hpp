@@ -1,6 +1,3 @@
-#if defined(PROFILE_PERFORMANCE)
-#include "../vdp-performance/vdp.hpp"
-#else
 #include "vce.hpp"
 #include "vdc.hpp"
 #include "vpc.hpp"
@@ -8,11 +5,12 @@
 struct VDP : Thread {
   Node::Component node;
   Node::Screen screen;
+  Node::Boolean overscan;
 
   auto irqLine() const -> bool { return vdc0.irqLine() | vdc1.irqLine(); }
 
   //vdp.cpp
-  auto load(Node::Object, Node::Object) -> void;
+  auto load(Node::Object) -> void;
   auto unload() -> void;
 
   auto main() -> void;
@@ -40,4 +38,3 @@ struct VDP : Thread {
 };
 
 extern VDP vdp;
-#endif

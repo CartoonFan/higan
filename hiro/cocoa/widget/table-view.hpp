@@ -28,6 +28,8 @@
 }
 -(id) initWith:(hiro::mTableView&)tableViewReference;
 -(void) keyDown:(NSEvent*)event;
+-(NSMenu*) menuForEvent:(NSEvent*)event;
+-(void) reloadData;
 @end
 
 @interface CocoaTableViewCell : NSCell {

@@ -67,7 +67,7 @@ auto MCD::readIO(uint1 upper, uint1 lower, uint24 address, uint16 data) -> uint1
   }
 
   if(address == 0xff8030) {
-    data.bit(0, 7) = timer.counter;
+    data.bit(0, 7) = timer.setpoint;
     data.bit(8,15) = Unmapped;
   }
 
@@ -201,7 +201,7 @@ auto MCD::writeIO(uint1 upper, uint1 lower, uint24 address, uint16 data) -> void
       io.wramSelect   = data.bit(0);
       io.wramMode     = data.bit(2);
       io.wramPriority = data.bit(3,4);
-      io.wramSwitch   = 0;
+      if(io.wramSelect) io.wramSwitch = 0;
     }
   }
 
@@ -210,7 +210,7 @@ auto MCD::writeIO(uint1 upper, uint1 lower, uint24 address, uint16 data) -> void
       cdc.address = data.bit(0,3);
     }
     if(upper) {
-      cdc.transfer.destination = data.bit(0,2);
+      cdc.transfer.destination = data.bit(8,10);
     }
   }
 
@@ -251,7 +251,7 @@ auto MCD::writeIO(uint1 upper, uint1 lower, uint24 address, uint16 data) -> void
 
   if(address == 0xff8030) {
     if(lower) {
-      timer.counter = data.byte(0);
+      timer.counter = timer.setpoint = data.byte(0);
     }
   }
 

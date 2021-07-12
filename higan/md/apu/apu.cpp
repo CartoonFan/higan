@@ -4,44 +4,39 @@ namespace higan::MegaDrive {
 
 APU apu;
 #include "bus.cpp"
+#include "debugger.cpp"
 #include "serialization.cpp"
 
-auto APU::load(Node::Object parent, Node::Object from) -> void {
-  node = Node::append<Node::Component>(parent, from, "APU");
-  from = Node::scan(parent = node, from);
+auto APU::load(Node::Object parent) -> void {
+  node = parent->append<Node::Component>("APU");
 
-  eventInstruction = Node::append<Node::Instruction>(parent, from, "Instruction", "APU");
-  eventInstruction->setAddressBits(16);
-
-  eventInterrupt = Node::append<Node::Notification>(parent, from, "Interrupt", "APU");
+  debugger.load(node);
 }
 
 auto APU::unload() -> void {
-  eventInstruction = {};
-  eventInterrupt = {};
+  debugger = {};
   node = {};
 }
 
 auto APU::main() -> void {
-  if(!state.enabled) {
+  updateBus();
+  if(!running()) {
     return step(1);
   }
 
   if(state.nmiLine) {
     state.nmiLine = 0;  //edge-sensitive
-    if(eventInterrupt->enabled()) eventInterrupt->notify("NMI");
+    debugger.interrupt("NMI");
     irq(0, 0x0066, 0xff);
   }
 
   if(state.intLine) {
     //level-sensitive
-    if(eventInterrupt->enabled()) eventInterrupt->notify("IRQ");
+    debugger.interrupt("IRQ");
     irq(1, 0x0038, 0xff);
   }
 
-  if(eventInstruction->enabled() && eventInstruction->address(r.pc)) {
-    eventInstruction->notify(disassembleInstruction(), disassembleContext());
-  }
+  debugger.instruction();
   instruction();
 }
 
@@ -50,35 +45,46 @@ auto APU::step(uint clocks) -> void {
   Thread::synchronize(cpu, vdp, psg, ym2612);
 }
 
-auto APU::setNMI(bool value) -> void {
+auto APU::setNMI(uint1 value) -> void {
   state.nmiLine = value;
 }
 
-auto APU::setINT(bool value) -> void {
+auto APU::setINT(uint1 value) -> void {
   state.intLine = value;
 }
 
-auto APU::enable(bool value) -> void {
-  //68K cannot disable the Z80 without bus access
-  if(!bus->granted() && !value) return;
-  if(state.enabled && !value) reset();
-  state.enabled = value;
+auto APU::setRES(uint1 value) -> void {
+  if(!value && arbstate.resetLine) {
+    power(true);
+  }
+  arbstate.resetLine = value;
+}
+
+auto APU::setBREQ(uint1 value) -> void {
+  arbstate.busreqLine = value;
+}
+
+auto APU::updateBus() -> void {
+  if(!arbstate.resetLine) return; // Z80 bus switch may be blocked by reset
+  if(arbstate.busreqLine && !arbstate.busreqLatch) {
+    step(9); // estimated minimum wait time to allow 68K to read back unavailable bus status (Fatal Rewind)
+  }
+  arbstate.busreqLatch = arbstate.busreqLine;
 }
 
 auto APU::power(bool reset) -> void {
   Z80::bus = this;
   Z80::power();
-  bus->grant(false);
+  ym2612.power(reset);
+  //bus->grant(false);
   Thread::create(system.frequency() / 15.0, {&APU::main, this});
-  if(!reset) ram.allocate(8_KiB);
+  if(!reset) {
+    ram.allocate(8_KiB);
+    arbstate = {};
+  }
   state = {};
-}
-
-auto APU::reset() -> void {
-  Z80::power();
-  bus->grant(false);
-  Thread::create(system.frequency() / 15.0, {&APU::main, this});
-  state = {};
+  io = {};
 }
 
 }
+

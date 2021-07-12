@@ -2,13 +2,14 @@
 MAKEFLAGS := Rr
 .SUFFIXES:
 
+# An empty variable to defeat make functions that trim whitespace.
+[empty] =
 [0-9] = 0 1 2 3 4 5 6 7 8 9
 [A-Z] = A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 [a-z] = a b c d e f g h i j k l m n o p q r s t u v w x y z
 [markup] = ` ~ ! @ \# $$ % ^ & * ( ) - _ = + [ { ] } \ | ; : ' " , < . > / ?
 [all] = $([0-9]) $([A-Z]) $([a-z]) $([markup])
-[space] :=
-[space] +=
+[space] := $([empty]) $([empty])
 
 # platform detection
 ifeq ($(platform),)
@@ -105,10 +106,10 @@ endif
 
 # clang settings
 ifeq ($(findstring clang++,$(compiler)),clang++)
-  flags += -fno-strict-aliasing -fwrapv -Wno-everything
+  flags += -fno-operator-names -fno-strict-aliasing -fwrapv -Wno-everything
 # gcc settings
 else ifeq ($(findstring g++,$(compiler)),g++)
-  flags += -fno-strict-aliasing -fwrapv -Wno-trigraphs
+  flags += -fno-operator-names -fno-strict-aliasing -fwrapv -Wno-trigraphs
 endif
 
 # windows settings
@@ -151,6 +152,10 @@ ifeq ($(object.path),)
   object.path := obj
 endif
 
+ifeq ($(output.path),)
+  output.path := out
+endif
+
 # rules
 default: all;
 
@@ -161,7 +166,7 @@ nall.verbose:
 	$(foreach n,$(sort $(call unique,$(options))),$(if $(filter-out -l%,$n),$(info $([space]) $n)))
 
 %.o: $<
-	$(info Compiling $< ...)
+	$(info Compiling $(subst ../,,$<) ...)
 	@$(call compile)
 
 # function compile([arguments])
